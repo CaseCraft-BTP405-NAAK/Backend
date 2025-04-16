@@ -16,25 +16,10 @@ def get_products(
     skip: int = 0, 
     limit: int = 100,
     category: Optional[str] = None,
-    search: Optional[str] = None,
-    sort_by: Optional[str] = "id",
-    sort_order: Optional[str] = "asc",
     db: Session = Depends(get_db)
 ) -> Any:
     """
-    Retrieve products with filtering, searching, and sorting options.
-    
-    Args:
-        skip: Number of records to skip for pagination
-        limit: Maximum number of records to return
-        category: Filter products by category
-        search: Search term to filter products by name or description
-        sort_by: Field to sort results by (id, name, price)
-        sort_order: Sort order (asc or desc)
-        db: Database session dependency
-        
-    Returns:
-        List of products matching the criteria
+    Retrieve products.
     """
     query = db.query(Product)
     
@@ -42,56 +27,24 @@ def get_products(
     if category:
         query = query.filter(Product.category == category)
     
-    # Apply search filter if provided
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            (Product.name.ilike(search_term)) | 
-            (Product.description.ilike(search_term))
-        )
-    
-    # Apply sorting
-    if sort_by not in ["id", "name", "price", "created_at"]:
-        sort_by = "id"  # Default sort field
-    
-    sort_field = getattr(Product, sort_by)
-    if sort_order.lower() == "desc":
-        sort_field = sort_field.desc()
-    else:
-        sort_field = sort_field.asc()
-    
-    query = query.order_by(sort_field)
-    
     # Apply pagination
     products = query.offset(skip).limit(limit).all()
     return products
 
-@router.post("/", response_model=ProductSchema, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=ProductSchema)
 def create_product(
     product_in: ProductCreate, 
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ) -> Any:
     """
-    Create new product. Only admin users can create products.
-    
-    Args:
-        product_in: Product data to create
-        db: Database session dependency
-        current_user: Current authenticated user
-        
-    Returns:
-        The newly created product
-        
-    Raises:
-        HTTPException: If user doesn't have admin privileges
+    Create new product.
     """
     # Check if user is admin
     if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can perform this action",
-            headers={"X-Error": "ADMIN_REQUIRED"}
+            detail="Not enough permissions"
         )
     
     product = Product(
@@ -111,16 +64,6 @@ def create_product(
 def get_product(product_id: int, db: Session = Depends(get_db)) -> Any:
     """
     Get product by ID.
-    
-    Args:
-        product_id: ID of the product to retrieve
-        db: Database session dependency
-        
-    Returns:
-        Product with the specified ID
-        
-    Raises:
-        HTTPException: If product with given ID is not found
     """
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
@@ -139,25 +82,12 @@ def update_product(
 ) -> Any:
     """
     Update a product.
-    
-    Args:
-        product_id: ID of the product to update
-        product_in: Product data to update
-        db: Database session dependency
-        current_user: Current authenticated user
-        
-    Returns:
-        The updated product
-        
-    Raises:
-        HTTPException: If user doesn't have admin privileges or product not found
     """
     # Check if user is admin
     if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can perform this action",
-            headers={"X-Error": "ADMIN_REQUIRED"}
+            detail="Not enough permissions"
         )
     
     product = db.query(Product).filter(Product.id == product_id).first()
@@ -184,24 +114,12 @@ def delete_product(
 ) -> Any:
     """
     Delete a product.
-    
-    Args:
-        product_id: ID of the product to delete
-        db: Database session dependency
-        current_user: Current authenticated user
-        
-    Returns:
-        The deleted product
-        
-    Raises:
-        HTTPException: If user doesn't have admin privileges or product not found
     """
     # Check if user is admin
     if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can perform this action",
-            headers={"X-Error": "ADMIN_REQUIRED"}
+            detail="Not enough permissions"
         )
     
     product = db.query(Product).filter(Product.id == product_id).first()

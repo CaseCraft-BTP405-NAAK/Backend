@@ -18,20 +18,10 @@ from app.auth.jwt import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-@router.post("/register", response_model=UserSchema, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserSchema)
 def register_user(user_in: UserCreate, db: Session = Depends(get_db)) -> Any:
     """
     Register a new user.
-    
-    Args:
-        user_in: User registration data including email, username, and password
-        db: Database session dependency
-        
-    Returns:
-        The newly created user object
-        
-    Raises:
-        HTTPException: If email or username already exists
     """
     # Check if user with this email already exists
     user = db.query(User).filter(User.email == user_in.email).first()
@@ -61,23 +51,13 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)) -> Any:
     db.refresh(db_user)
     return db_user
 
-@router.post("/token", response_model=Token, status_code=status.HTTP_200_OK)
+@router.post("/token", response_model=Token)
 def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ) -> Any:
     """
     OAuth2 compatible token login, get an access token for future requests.
-    
-    Args:
-        form_data: OAuth2 password request form containing username and password
-        db: Database session dependency
-        
-    Returns:
-        Token object with access token and token type
-        
-    Raises:
-        HTTPException: If authentication fails
     """
     # Try to find user by username
     user = db.query(User).filter(User.username == form_data.username).first()
@@ -87,17 +67,10 @@ def login_for_access_token(
         user = db.query(User).filter(User.email == form_data.username).first()
     
     # Verify user and password
-    if not user:
+    if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-        
-    if not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect password",
+            detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -109,15 +82,9 @@ def login_for_access_token(
     
     return {"access_token": access_token, "token_type": "bearer"}
 
-@router.get("/me", response_model=UserSchema, status_code=status.HTTP_200_OK)
+@router.get("/me", response_model=UserSchema)
 def read_users_me(current_user: User = Depends(get_current_active_user)) -> Any:
     """
-    Get current user information based on the JWT token.
-    
-    Args:
-        current_user: Current authenticated user from JWT token
-        
-    Returns:
-        Current user information
+    Get current user information.
     """
-    return current_user
+    return current_user 
